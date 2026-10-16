@@ -1,0 +1,50 @@
+services:
+  qgis:
+    image: "camptocamp/qgis-server:3.44-gdal3.10"
+    hostname: qgisserver
+    container_name: qgisserver
+    tty: true
+    environment:
+      PGSERVICEFILE: "/io/pg_service.conf"
+      QGIS_PROJECT_FILE: "/etc/qgisserver/qgis/valve_control_server.qgs"
+      QGIS_SERVER_LOG_LEVEL: 0
+      QGIS_SERVER_PARALLEL_RENDERING: "true"
+      QGIS_SERVER_LANDING_PAGE_PROJECTS_DIRECTORIES: "/etc/qgisserver/qgis"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_HOST_PORT:-8085}:80"
+    volumes:
+      - ./data:/etc/qgisserver
+      - ./conf:/io
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  db:
+    image: postgis/postgis:17-3.5
+    hostname: db
+    container_name: db-qgis-valves
+    shm_size: 512m
+    environment:
+      POSTGRES_USER:
+      POSTGRES_PASSWORD:
+      POSTGRES_DB:
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-U", "postgres" ]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    ports:
+      - "${PG_HOST_PORT:-5456}:5432"  # host:container
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./initdb/initdb.sh:/docker-entrypoint-initdb.d/20_init_db.sh
+      - ./initdb/initdb.sql:/sql/initdb.sql
+    command: [ "postgres", "-c", "log_statement=mod", "-c", "log_min_messages=INFO" ]
+
+volumes:
+  pg_data:

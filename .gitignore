@@ -1,0 +1,5 @@
+.env
+*.csv
+*.qgs~
+*.zip
+pg_service.conf
